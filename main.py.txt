@@ -1,0 +1,78 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+import requests
+from config import BOT_TOKEN, CHANNEL_USERNAME
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    member = await context.bot.get_chat_member(CHANNEL_USERNAME, user.id)
+    if member.status in ['left', 'kicked']:
+        keyboard = [
+            [InlineKeyboardButton("📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_USERNAME.strip('@')}")],
+            [InlineKeyboardButton("✅ بررسی عضویت", callback_data='check')]
+        ]
+        await update.message.reply_text("لطفاً ابتدا در کانال عضو شوید:", reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.message.reply_text("خوش اومدی! از دستور /fal یا /weather یا /music استفاده کن!")
+
+async def check_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user = query.from_user
+    await query.answer()
+    member = await context.bot.get_chat_member(CHANNEL_USERNAME, user.id)
+    if member.status in ['left', 'kicked']:
+        await query.edit_message_text("هنوز عضو نشدی. لطفاً عضو شو و دوباره امتحان کن.")
+    else:
+        await query.edit_message_text("✅ عضویت تأیید شد! حالا می‌تونی از ربات استفاده کنی.")
+
+async def fal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    falls = [
+        "✨ به زودی خبر خوبی می‌شنوی!",
+        "🌟 وقتشه برای یه تغییر بزرگ.",
+        "🌈 نیتت پاکه، بهش می‌رسی.",
+        "🔥 این هفته برات پر از انرژی خوبه."
+    ]
+    from random import choice
+    await update.message.reply_text(choice(falls))
+
+async def jok(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    jokes = [
+        "😂 چرا برنامه‌نویسا نمی‌رن به آسمون؟ چون باگ داره!",
+        "😅 یکی گفت من آچار فرانسه‌ام، گفتم تو که پیچیدی رفتی!",
+        "🤣 بابام گفت موهات رو بزن، گفتم تو بزن! گفت بچه‌رو ببین چه پررو شده!"
+    ]
+    from random import choice
+    await update.message.reply_text(choice(jokes))
+
+async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.args:
+        city = ' '.join(context.args)
+        url = f"https://wttr.in/{city}?format=3"
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                await update.message.reply_text(f"🌤 وضعیت هوا: {response.text}")
+            else:
+                await update.message.reply_text("❌ هواشناسی در دسترس نیست.")
+        except:
+            await update.message.reply_text("⚠️ خطا در اتصال به سرور آب‌وهوا.")
+    else:
+        await update.message.reply_text("📍 لطفاً نام شهر رو وارد کن. مثلا:\n/weather Tehran")
+
+async def music(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.args:
+        query = ' '.join(context.args)
+        youtube_search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+        await update.message.reply_text(f"🎶 نتیجه جستجو برای: {query}\n🔗 {youtube_search_url}")
+    else:
+        await update.message.reply_text("📌 لطفاً اسم آهنگ رو بنویس. مثلاً:\n/music Gole Yakh Ebi")
+
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(check_callback, pattern='check'))
+    app.add_handler(CommandHandler("fal", fal))
+    app.add_handler(CommandHandler("jok", jok))
+    app.add_handler(CommandHandler("weather", weather))
+    app.add_handler(CommandHandler("music", music))
+    app.run_polling()
